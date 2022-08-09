@@ -1,0 +1,417 @@
+<%= stylesheet_link_tag 'daily_report', :plugin => 'daily_report' %>
+
+<h2>日報</h2>
+
+<script>
+	var gridSize;
+
+	$(function() {
+
+		//時刻表を出力。作業報告パネルの開始時刻・終了時刻を設定。
+		var $tbody = $('table[id="timeTable"] tbody');
+		var $boTime = $('[name="bo_time"]');
+		var $eoTime = $('[name="eo_time"]');
+		for (var h = 0; h < 24; h++) {
+			var hh = zeroPadding2(h);
+
+			var trs = '<tr><th rowspan="4">' + hh + ':00</th><td id="' + hh + ':00"></td></tr>';
+			trs += '<tr><td id="' + hh + ':15"></td></tr>';
+			trs += '<tr><td id="' + hh + ':30"></td></tr>';
+			trs += '<tr><td id="' + hh + ':45"></td></tr>'
+			$tbody.append(trs);
+
+			var options = '';
+			options += '<option value="' + hh + ':00">' + hh + ':00</option>';
+			options += '<option value="' + hh + ':15">' + hh + ':15</option>';
+			options += '<option value="' + hh + ':30">' + hh + ':30</option>';
+			options += '<option value="' + hh + ':45">' + hh + ':45</option>';
+			$boTime.append(options);
+			$eoTime.append(options);
+		}
+
+		//パネルのグリッドとして時刻表の行高さを取得
+		gridSize = $tbody.find('td')[0].clientHeight + 1;
+
+		//7:30までスクロール
+		$tbody.scrollTop($('[id="07:30"]')[0].offsetTop - $tbody[0].offsetTop);
+
+		//システム日時でパネルを表示
+		setWorkDate(new Date());
+
+		//readonlyのスタイル設定
+		$('.readonly').attr('readonly', true).attr('tabindex', -1).css('border-style', 'none').css('pointer-events', 'none');
+
+		//作業報告ダイアログの初期化
+		$("#dialog").dialog({
+			autoOpen : false,
+			modal : true,
+			width : 850,
+			buttons : {
+				/**
+				 * 削除ボタン押下
+				 */
+				Delete : function() {
+					var $dialog = $(this);
+					var $id = $dialog.find('[name="id"]');
+					var id = $id.val();
+					$.ajax({
+						url : './daily_report/delete',
+						type : 'post',
+						data : {
+							id : id
+						},
+						dataType : 'json'
+					}).fail(function(data) {
+					}).done(function(data) {
+						$('div[id="panel_' + id + '"]').remove();
+						calcTotalTime();
+						$dialog.dialog('close');
+					}).always(function() {
+					});
+				},
+				Save : function() {
+					var $dialog = $(this);
+					var $id = $dialog.find('[name="id"]');
+					var id = $id.val();
+					var formJson = {};
+					$dialog.find(':input').each(function() {
+						formJson[this.name] = $(this).val();
+					});
+					$.ajax({
+						url : './daily_report/regist',
+						type : 'post',
+						data : formJson,
+						dataType : 'json'
+					}).fail(function(data) {
+					}).done(function(data) {
+
+						//新規パネルならIDを更新
+						$('div[id="panel_"]').attr('id', 'panel_' + data);
+
+						var issueMei = $dialog.find('[name="issue_id"] option:selected').text();
+						var issueId = $dialog.find('[name="issue_id"]').val();
+						var boTime = $dialog.find('[name="bo_time"]').val();
+						var eoTime = $dialog.find('[name="eo_time"]').val();
+						var activityId = $dialog.find('[name="activity_id"]').val();
+						var comments = $dialog.find('[name="comments"]').val();
+
+						var $panel = $('div[id="panel_' + data + '"] .panel');
+						$panel.find('[id="issueMei"]').html(issueMei);
+						$panel.find('[name="issue_id"]').val(issueId);
+						$panel.find('[name="bo_time"]').val(boTime);
+						$panel.find('[name="eo_time"]').val(eoTime);
+						$panel.find('[name="activity_id"]').val(activityId);
+						$panel.find('[name="comments"]').val(comments);
+
+						$dialog.dialog('close');
+
+					}).always(function() {
+					});
+				},
+				Cancel : function() {
+					$(this).dialog("close");
+				}
+			},
+			close : function() {
+				$('div[id="panel_"]').remove();
+				var $dialog = $(this);
+				$dialog.find('form')[0].reset();
+			}
+		});
+
+		/**
+		 * 時刻表クリック：作業報告追加
+		 */
+		$(document).on('click', 'tbody td', function() {
+
+			var boTime = this.id;
+
+			var $tds = $('td');
+			var j = $tds.index(this) + 1;
+			var next = $tds[j];
+			var eoTime = next.id;
+
+			//時刻表にパネル追加
+			addPanel('', '', boTime, eoTime, '');
+
+			//作業報告ダイアログ表示
+			var $dialog = $("#dialog");
+			$dialog.find('[name="yyyy"]').val($('[name="yyyy"]').val());
+			$dialog.find('[name="mm"]').val($('[name="mm"]').val());
+			$dialog.find('[name="dd"]').val($('[name="dd"]').val());
+			$dialog.find('[name="bo_time"]').val(boTime);
+			$dialog.find('[name="eo_time"]').val(eoTime);
+			$dialog.dialog('open');
+		});
+
+		/**
+		 * 作業報告クリック：作業報告照会
+		 */
+		$(document).on('click', '.panel', function() {
+
+			//クリックしたパネルの日報ID・チケットID・開始時刻・終了時刻を取得
+			var $panel = $(this);
+			var panelId = $panel.closest('.panelWrapper').attr('id');
+			var id = panelId.replace(/^panel_/, '');
+			var issueId = $panel.find('[name="issue_id"]').val();
+			var boTime = $panel.find('[name="bo_time"]').val();
+			var eoTime = $panel.find('[name="eo_time"]').val();
+			var activityId = $panel.find('[name="activity_id"]').val();
+			var comments = $panel.find('[name="comments"]').val();
+
+			//作業報告ダイアログに値を反映して表示
+			var $dialog = $("#dialog");
+			$dialog.find('[name="id"]').val(id);
+			$dialog.find('[name="yyyy"]').val($('[name="yyyy"]').val());
+			$dialog.find('[name="mm"]').val($('[name="mm"]').val());
+			$dialog.find('[name="dd"]').val($('[name="dd"]').val());
+			$dialog.find('[name="bo_time"]').val(boTime);
+			$dialog.find('[name="eo_time"]').val(eoTime);
+			$dialog.find('[name="issue_id"]').val(issueId);
+			$dialog.find('[name="activity_id"]').val(activityId);
+			$dialog.find('[name="comments"]').val(comments);
+			$dialog.dialog('open');
+		});
+
+		/**
+		 * 前日リンク押下
+		 */
+		$('[id="prevDay"]').on('click', function() {
+			var yyyy = $('input[name="yyyy"]').val();
+			var m = $('input[name="mm"]').val() * 1;
+			var d = $('input[name="dd"]').val() * 1;
+			var date = new Date(yyyy, m - 1, d - 1);
+			setWorkDate(date);
+		});
+
+		/**
+		 * 翌日リンク押下
+		 */
+		$('[id="nextDay"]').on('click', function() {
+			var yyyy = $('input[name="yyyy"]').val();
+			var m = $('input[name="mm"]').val() * 1;
+			var d = $('input[name="dd"]').val() * 1;
+			var date = new Date(yyyy, m - 1, d + 1);
+			setWorkDate(date);
+		});
+
+		$('[name="decide"]').on('click', function(event) {
+
+			var $form = $(this).closest('form');
+			$.ajax({
+				url : './daily_reports/decide',
+				type : 'post',
+				data : {
+					yyyy : $form.find('[name="yyyy"]').val(),
+					mm : $form.find('[name="mm"]').val(),
+					dd : $form.find('[name="dd"]').val()
+				},
+				dataType : 'json'
+			}).fail(function(data) {
+			}).done(function(data) {
+			}).always(function() {
+			});
+
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			return false;
+		});
+	});
+
+	/**
+	 * 2桁ゼロ埋め
+	 */
+	function zeroPadding2(i) {
+		var iii = '0' + i;
+		var ii = iii.slice(-2);
+		return ii;
+	}
+
+	function setWorkDate(date) {
+
+		//年月日を設定
+		var yyyy = date.getFullYear();
+		var mm = zeroPadding2(date.getMonth() + 1);
+		var dd = zeroPadding2(date.getDate());
+		$('input[name="yyyy"]').val(yyyy);
+		$('input[name="mm"]').val(mm);
+		$('input[name="dd"]').val(dd);
+
+		//全てのパネルを一旦削除
+		$('.panelWrapper').remove();
+
+		//作業報告を検索してパネルを表示
+		$.ajax({
+			url : './daily_reports/search',
+			type : 'post',
+			data : {
+				yyyy : yyyy,
+				mm : mm,
+				dd : dd
+			},
+			dataType : 'json'
+		}).fail(function(data) {
+		}).done(function(data) {
+			for (var i in data) {
+				var item = data[i];
+				addPanel(item.id, item.issue_id, item.bo_time, item.eo_time, item.activity_id, item.comments);
+			}
+		}).always(function() {
+		});
+	}
+
+	function addPanel(id, issueId, boTime, eoTime, activityId, comments) {
+
+		//チケット名を取得
+		var issueMei = $('[id="dialog"] [name="issue_id"] option[value="' + issueId + '"]').text();
+
+		//開始・終了時刻から、始点と高さを取得
+		var $tbody = $('[id="timeTable"] tbody');
+		var tbody = $tbody[0];
+		var boTd = $('td[id="' + boTime + '"]')[0];
+		var eoTd = $('td[id="' + eoTime + '"]')[0];
+		var l = boTd.offsetLeft;
+		var t = boTd.offsetTop - tbody.offsetTop;
+		var h = eoTd.offsetTop - boTd.offsetTop;
+
+		//時刻表にパネルを追加
+		var panel = '<div class="panel" style="height: ' + h + 'px;">';
+		panel += '<span id="issueMei">' + issueMei + '</span>';
+		panel += '<input type="hidden" name="issue_id" value="' + issueId + '" />';
+		panel += '<input type="hidden" name="bo_time" value="' + boTime + '" />';
+		panel += '<input type="hidden" name="eo_time" value="' + eoTime + '" />';
+		panel += '<input type="hidden" name="activity_id" value="' + activityId + '" />';
+		panel += '<input type="hidden" name="comments" value="' + comments + '" />';
+		panel += '</div>';
+		var panelWrapper = '<div id="panel_' + id + '" class="panelWrapper" style="left: ' + l + 'px; top: ' + t + 'px;">' + panel + '</div>';
+		$tbody.prepend(panelWrapper);
+
+		//パネルにリサイズプラグインを設定
+		$('.panel').resizable({
+			//リサイズ時のグリッドサイズ
+			grid : gridSize,
+			/**
+			 * リサイズ終了時のイベント
+			 */
+			stop : function(event, ui) {
+
+				//パネルのサイズから終了時刻を評価
+				var grids = Math.round(ui.size.height / gridSize, 0);
+				var gridMinutes = grids * 15;
+				var boTime = $(this).find('[name="bo_time"]').val();
+				var boTimes = boTime.split(':');
+				var eoDate = new Date();
+				eoDate.setHours(boTimes[0]);
+				eoDate.setMinutes(boTimes[1] * 1 + gridMinutes);
+				var eoTime = zeroPadding2(eoDate.getHours()) + ':' + zeroPadding2(eoDate.getMinutes());
+				$(this).find('[name="eo_time"]').val(eoTime);
+
+				//終了日時を登録
+				$.ajax({
+					url : './daily_report/regist',
+					type : 'post',
+					data : {
+						id : $(this).closest('.panelWrapper').attr('id').replace(/^panel\_/, ''),
+						eo_time : eoTime
+					},
+					dataType : 'json'
+				}).fail(function(data) {
+				}).done(function(data) {
+					calcTotalTime();
+				}).always(function() {
+				});
+			}
+		});
+
+		calcTotalTime();
+	}
+
+	function calcTotalTime() {
+
+		var panelsGridSize = 0;
+		$('.panel').each(function() {
+			panelsGridSize += Math.round(this.offsetHeight / gridSize);
+		});
+
+		$('td[id="totalTime"]').html((Math.round(panelsGridSize * 15 / 60 * 100) / 100).toFixed(2));
+	}
+
+</script>
+
+<table id="timeTable">
+	<caption>
+		<a href="javascript:void(0);" id="prevDay">&lt;&lt;</a>
+		<form>
+			<input type="text" name="yyyy" style="display: inline;">
+			年
+			<input type="text" name="mm" style="display: inline;">
+			月
+			<input type="text" name="dd" style="display: inline;">
+			日
+			<input type="submit" name="decide" value="報告" />
+		</form>
+		<a href="javascript:void(0);" id="nextDay">&gt;&gt;</a>
+	</caption>
+	<thead>
+		<tr>
+			<th>時刻</th>
+			<td>作業内容</td>
+		</tr>
+	</thead>
+	<tbody></tbody>
+	<tfoot>
+		<tr>
+			<th>合計</th>
+			<td id="totalTime"></td>
+		</tr>
+	</tfoot>
+</table>
+
+<div id="dialog">
+	<form>
+		<fieldset>
+			<legend>
+				作業報告
+			</legend>
+			<div>
+				<label>ID</label>
+				<input type="text" name="id" class="readonly" />
+			</div>
+			<div>
+				<label>作業日</label>
+				<input type="text" name="yyyy" class="readonly" />
+				/
+				<input type="text" name="mm" class="readonly" />
+				/
+				<input type="text" name="dd" class="readonly" />
+			</div>
+			<div>
+				<label>時間帯</label>
+				<select name="bo_time" class="readonly"></select>
+				～
+				<select name="eo_time" class="readonly"></select>
+			</div>
+			<div>
+				<label>チケット </label>
+				<select name="issue_id">
+					<% @issues.each do |issue| %>
+					<option value="<%= issue.id %>"><%= issue.project_name %>：<%= issue.subject %></option>
+					<% end %>
+				</select>
+			</div>
+			<div>
+				<label>作業分類</label>
+				<select name="activity_id">
+					<% @activities.each do |activity| %>
+					<option value="<%= activity.id %>"><%= activity.name %></option>
+					<% end %>
+				</select>
+			</div>
+			<div>
+				<label>コメント</label>
+				<input type="text" name="comments" size="100" maxlength="1024" />
+			</div>
+		</fieldset>
+	</form>
+</div>

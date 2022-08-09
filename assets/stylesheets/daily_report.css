@@ -1,0 +1,80 @@
+table {
+	border-collapse: collapse;
+}
+
+#timeTable th, #timeTable td {
+	padding: 0px;
+}
+
+th {
+	background-color: aliceblue;
+	font-weight: normal;
+	width: 5rem;
+}
+
+th, thead td, tfoot td {
+	border: solid 1px #ccc;
+}
+
+td {
+	width: 20rem;
+}
+
+tbody td {
+	border: dashed 1px #ccc;
+	border-right: solid 1px #ccc;
+	height: 1rem;
+}
+
+tbody td:nth-child(2n) {
+	border-right: solid 1px #ccc;
+	border-top: solid 1px #ccc;
+}
+
+thead, tfoot {
+	display: block;
+}
+
+tbody {
+	display: inline-block;
+	overflow-y: scroll;
+	max-height: 40rem;
+}
+
+.panelWrapper {
+	position: relative;
+	width: 20rem;
+}
+
+.panel {
+	position: absolute;
+	background-color: lightyellow;
+	width: 98%;
+	border-radius: 5px;
+	border: solid 1px #ccc;
+	margin-top: -1px;
+	opacity: 0.5;
+	font-size: small;
+}
+
+[name="yyyy"] {
+	width: 3rem;
+}
+
+[name="mm"] {
+	width: 2rem;
+}
+
+[name="dd"] {
+	width: 2rem;
+}
+
+form > fieldset > div > label {
+	display: inline-block;
+	text-align: right;
+	width: 10rem;
+}
+
+form > fieldset > div > label::after {
+	content: '：';
+}
