@@ -1,0 +1,148 @@
+○Dockerコンテナ上のRedMineへのプラグイン追加についての考察
+
+
+
+●RedMine自体について
+・sameersbn/redmineはVersion5系であり、4系で動作していたプラグインは動作しない可能性が高い
+→4系のコンテナを使用する
+------------------------------------------------------------
+sudo docker run \
+--restart=always \
+--name=redmine \
+-d \
+-e 'TZ=Asia/Tokyo' \
+-e 'SMTP_ENABLED=true' \
+-e 'SMTP_METHOD=smtp' \
+-e 'SMTP_DOMAIN=smtp.gmail.com' \
+-e 'SMTP_HOST=smtp.gmail.com' \
+-e 'SMTP_PORT=587' \
+-e 'SMTP_USER=redmine.souken@gmail.com' \
+-e 'SMTP_PASS=Souken8246' \
+-e 'SMTP_STARTTLS=true' \
+-e 'SMTP_AUTHENTICATION=:login' \
+-p 8001:80 \
+--link redmine-mysql:mysql \
+--link openldap:ldap \
+-v /srv/docker/redmine/home/redmine/data:/home/redmine/data \
+-v /srv/docker/redmine/home/redmine/redmine/plugins:/home/redmine/redmine/plugins \
+sameersbn/redmine:4.2.7
+------------------------------------------------------------
+
+
+
+●プラグイン作成
+・redmine上で、railsのスクリプトを実行し、プラグインについての各ひな形を出力する
+・プラグイン自体のひな形出力
+ruby bin/rails generate redmine_plugin [プラグイン]
+・モデルの出力
+ruby bin/rails generate redmine_plugin_model [プラグイン] [モデル] [メンバ]:[型]...
+・モデルをmigrate
+bundle exec rake redmine:plugins:migrate
+・コントローラの出力
+ruby bin/rails generate redmine_plugin_controller [プラグイン] [コントローラ] [メソッド]...
+・/home/redmine/redmine/pluginsに出力されるが、再起動のたび/home/redmine/data/pluginsから復元されている
+・出力したひな形を、/home/redmine/data/pluginsにコピーしてこれを編集する
+
+
+
+●開発について
+・railsのIDEとしては、現状、Aptanaがベター
+・pleiadesにより日本語化すると起動しなくなる
+
+
+
+●機能実装
+	■ログイン情報取得
+	■ByName担当分、グループ担当分の未完了チケットリスト取得
+	■日付選択
+	■時刻表描画処理
+	■時刻表上の時間帯変更機能
+	■作業報告新規追加ダイアログ初期表示
+	■作業報告内容の時刻表反映処理
+	■作業報告内容の登録処理
+	■既登録作業報告の照会処理
+	■既登録作業報告の削除処理
+	■既登録作業報告の更新処理
+	■作業日毎の作業報告照会処理
+	■作業報告内容のRedMine作業時間連携処理
+	■作業時間の合計処理
+
+
+
+●作業ログ
+ruby bin/rails generate redmine_plugin daily_report
+ruby bin/rails generate redmine_plugin_model daily_report daily_report user_id:integer yyyy:string mm:string dd:string bo_time:string eo_time:string issue_id:integer activity_id:integer comments:string
+bundle exec rake redmine:plugins:migrate
+ruby bin/rails generate redmine_plugin_controller daily_report daily_report index regist
+
+●メモ
+INSERT 
+INTO time_entries( 
+    project_id                                  --プロジェクトID
+    , user_id                                   --ユーザID
+    , issue_id                                  --チケットID
+    , hours                                     --10進時間
+    , activity_id                               --作業分類
+    , spent_on                                  --作業日
+    , tyear                                     --作業年
+    , tmonth                                    --作業月
+    , tweek                                     --作業週
+    , created_on
+    , updated_on
+) 
+VALUES ( 
+    1
+    , 1
+    , 3
+    , 1
+    , 8
+    , '2022-08-04'
+    , 2022
+    , 8
+    , 31
+    , now()
+    , now()
+);
+
+
+
+mysql> select * from time_entries;
++----+------------+-----------+---------+----------+-------+----------+-------------+------------+-------+--------+-------+---------------------+---------------------+
+| id | project_id | author_id | user_id | issue_id | hours | comments | activity_id | spent_on   | tyear | tmonth | tweek | created_on          | updated_on          |
++----+------------+-----------+---------+----------+-------+----------+-------------+------------+-------+--------+-------+---------------------+---------------------+
+|  3 |          1 |         1 |       1 |        2 |     1 |          |           8 | 2022-08-01 |  2022 |      8 |    31 | 2022-08-04 14:49:48 | 2022-08-04 16:53:23 |
+|  4 |          1 |         1 |       1 |        1 |   2.5 |          |           9 | 2022-07-31 |  2022 |      7 |    30 | 2022-08-04 14:50:32 | 2022-08-04 16:53:14 |
+| 10 |          1 |         1 |       1 |        2 |     2 | NULL     |           8 | 2022-08-04 |  2022 |      8 |    31 | 2022-08-04 22:46:14 | 2022-08-04 22:46:14 |
+| 16 |          1 |         1 |       1 |        2 |     2 | ????     |           8 | 2022-08-05 |  2022 |      8 |    31 | 2022-08-05 03:48:03 | 2022-08-05 03:48:03 |
+| 17 |          1 |         1 |       1 |        2 |     2 |          |           8 | 2022-08-05 |  2022 |      8 |    31 | 2022-08-05 03:48:03 | 2022-08-05 03:48:03 |
+| 18 |          1 |         1 |       1 |        3 |     2 |          |           8 | 2022-08-05 |  2022 |      8 |    31 | 2022-08-05 03:48:03 | 2022-08-05 03:48:03 |
++----+------------+-----------+---------+----------+-------+----------+-------------+------------+-------+--------+-------+---------------------+---------------------+
+6 rows in set (0.00 sec)
+
+
+
+select p.id as project_id, r.user_id as author_id, r.user_id, r.issue_id, timediff (r.eo_time, r.bo_time) as hours from daily_reports r inner join issues i on i.id = r.issue_id inner join projects p on p.id = i.project_id;
+
+
+
+mysql> select * from issues;
++----+------------+------------+---------+-------------+----------+-------------+-----------+----------------+-------------+------------------+-----------+--------------+---------------------+---------------------+------------+------------+-----------------+-----------+---------+------+------+------------+-----------+
+| id | tracker_id | project_id | subject | description | due_date | category_id | status_id | assigned_to_id | priority_id | fixed_version_id | author_id | lock_version | created_on          | updated_on          | start_date | done_ratio | estimated_hours | parent_id | root_id | lft  | rgt  | is_private | closed_on |
++----+------------+------------+---------+-------------+----------+-------------+-----------+----------------+-------------+------------------+-----------+--------------+---------------------+---------------------+------------+------------+-----------------+-----------+---------+------+------+------------+-----------+
+|  1 |          1 |          1 | ?????   |             | NULL     |        NULL |         1 |           NULL |           2 |             NULL |         1 |            0 | 2022-08-02 12:50:04 | 2022-08-02 12:50:04 | 2022-08-02 |          0 |            NULL |      NULL |       1 |    1 |    2 |          0 | NULL      |
+|  2 |          2 |          1 | ?????   |             | NULL     |        NULL |         1 |              1 |           2 |             NULL |         1 |            1 | 2022-08-02 12:50:12 | 2022-08-02 12:50:41 | 2022-08-02 |          0 |            NULL |      NULL |       2 |    1 |    2 |          0 | NULL      |
+|  3 |          3 |          1 | ?????   |             | NULL     |        NULL |         1 |              5 |           2 |             NULL |         1 |            1 | 2022-08-02 12:50:25 | 2022-08-03 09:18:17 | 2022-08-02 |          0 |            NULL |      NULL |       3 |    1 |    2 |          0 | NULL      |
++----+------------+------------+---------+-------------+----------+-------------+-----------+----------------+-------------+------------------+-----------+--------------+---------------------+---------------------+------------+------------+-----------------+-----------+---------+------+------+------------+-----------+
+3 rows in set (0.00 sec)
+
+
+
+mysql> select * from projects;
++----+-----------+-------------+----------+-----------+-----------+---------------------+---------------------+------------+--------+------+------+-----------------+--------------------+------------------------+------------------------+
+| id | name      | description | homepage | is_public | parent_id | created_on          | updated_on          | identifier | status | lft  | rgt  | inherit_members | default_version_id | default_assigned_to_id | default_issue_query_id |
++----+-----------+-------------+----------+-----------+-----------+---------------------+---------------------+------------+--------+------+------+-----------------+--------------------+------------------------+------------------------+
+|  1 | project A |             |          |         1 |      NULL | 2022-08-02 12:44:09 | 2022-08-02 12:44:09 | project-a  |      1 |    1 |    2 |               0 |               NULL |                   NULL |                   NULL |
+|  2 | project B |             |          |         1 |      NULL | 2022-08-02 12:44:16 | 2022-08-02 12:44:16 | project-b  |      1 |    3 |    4 |               0 |               NULL |                   NULL |                   NULL |
+|  3 | project C |             |          |         1 |      NULL | 2022-08-02 12:44:24 | 2022-08-02 12:44:24 | project-c  |      1 |    5 |    6 |               0 |               NULL |                   NULL |                   NULL |
++----+-----------+-------------+----------+-----------+-----------+---------------------+---------------------+------------+--------+------+------+-----------------+--------------------+------------------------+------------------------+
+3 rows in set (0.00 sec)

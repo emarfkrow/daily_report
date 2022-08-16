@@ -114,6 +114,7 @@
 			},
 			close : function() {
 				$('div[id="panel_"]').remove();
+				calcTotalTime();
 				var $dialog = $(this);
 				$dialog.find('form')[0].reset();
 			}
@@ -257,6 +258,7 @@
 				var item = data[i];
 				addPanel(item.id, item.issue_id, item.bo_time, item.eo_time, item.activity_id, item.comments);
 			}
+			calcTotalTime();
 		}).always(function() {
 		});
 	}
