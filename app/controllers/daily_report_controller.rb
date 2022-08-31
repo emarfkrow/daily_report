@@ -57,7 +57,7 @@ class DailyReportController < ApplicationController
         permitted = params.permit(:id, :user_id, :yyyy, :mm, :dd, :bo_time, :eo_time, :issue_id, :activity_id, :comments)
 
         id = params[:id]
-        if id == ''
+        if id == '' then
             #ID採番前の場合は追加
             @dailyReport = DailyReport.create(permitted)
         else
