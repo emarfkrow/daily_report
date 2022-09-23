@@ -17,10 +17,10 @@
 
 
 ●作業ログ
-ruby bin/rails generate redmine_plugin daily_report
-ruby bin/rails generate redmine_plugin_model daily_report daily_report user_id:integer yyyy:string mm:string dd:string bo_time:string eo_time:string issue_id:integer activity_id:integer comments:string
+ruby bin/rails generate redmine_plugin            RedmineDailyReport
+ruby bin/rails generate redmine_plugin_model      RedmineDailyReport daily_report user_id:integer yyyy:string mm:string dd:string bo_time:string eo_time:string issue_id:integer activity_id:integer comments:string
 bundle exec rake redmine:plugins:migrate
-ruby bin/rails generate redmine_plugin_controller daily_report daily_report index regist
+ruby bin/rails generate redmine_plugin_controller RedmineDailyReport daily_report index regist
 
 ●メモ
 INSERT 
