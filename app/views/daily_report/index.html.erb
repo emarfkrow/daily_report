@@ -5,6 +5,9 @@
 <script>
 	var gridSize;
 
+	/**
+	 * 初期化処理
+	 */
 	$(function() {
 
 		//時刻表を出力。作業報告パネルの開始時刻・終了時刻を設定。
@@ -33,7 +36,7 @@
 		gridSize = $tbody.find('td')[0].clientHeight + 1;
 
 		//7:30までスクロール
-		$tbody.scrollTop($('[id="07:30"]')[0].offsetTop - $tbody[0].offsetTop);
+		$tbody.scrollTop($('[id="07:45"]')[0].offsetTop - $tbody[0].offsetTop);
 
 		//システム日時でパネルを表示
 		setWorkDate(new Date());
@@ -85,9 +88,6 @@
 					}).fail(function(data) {
 					}).done(function(data) {
 
-						//新規パネルならIDを更新
-						$('div[id="panel_"]').attr('id', 'panel_' + data);
-
 						var issueMei = $dialog.find('[name="issue_id"] option:selected').text();
 						var issueId = $dialog.find('[name="issue_id"]').val();
 						var boTime = $dialog.find('[name="bo_time"]').val();
@@ -95,7 +95,10 @@
 						var activityId = $dialog.find('[name="activity_id"]').val();
 						var comments = $dialog.find('[name="comments"]').val();
 
-						var $panel = $('div[id="panel_' + data + '"] .panel');
+						//新規パネルならIDを更新
+						$('div[id="panel_"]').attr('id', 'panel_' + data);
+
+						var $panel = $('div[id="panel_' + data + '"] .panel').attr('title', comments);
 						$panel.find('[id="issueMei"]').html(issueMei);
 						$panel.find('[name="issue_id"]').val(issueId);
 						$panel.find('[name="bo_time"]').val(boTime);
@@ -184,6 +187,17 @@
 			var date = new Date(yyyy, m - 1, d - 1);
 			setWorkDate(date);
 		});
+		
+		/**
+		 * 日付変更
+		 */
+		$('table[id="timeTable"] input[name="yyyy"],table[id="timeTable"] input[name="mm"],table[id="timeTable"] input[name="dd"]').on('change', function() {
+			var yyyy = $('input[name="yyyy"]').val();
+			var m = $('input[name="mm"]').val() * 1;
+			var d = $('input[name="dd"]').val() * 1;
+			var date = new Date(yyyy, m - 1, d);
+			setWorkDate(date);
+		});
 
 		/**
 		 * 翌日リンク押下
@@ -196,6 +210,9 @@
 			setWorkDate(date);
 		});
 
+		/**
+		 * 作業時間に反映ボタン押下
+		 */
 		$('[name="decide"]').on('click', function(event) {
 
 			var $form = $(this).closest('form');
@@ -229,6 +246,9 @@
 		return ii;
 	}
 
+	/**
+	 * 登録済みの作業パネルを取得
+	 */
 	function setWorkDate(date) {
 
 		//年月日を設定
@@ -263,6 +283,9 @@
 		});
 	}
 
+	/**
+	 * 作業パネルを追加
+	 */
 	function addPanel(id, issueId, boTime, eoTime, activityId, comments) {
 
 		//チケット名を取得
@@ -278,7 +301,7 @@
 		var h = eoTd.offsetTop - boTd.offsetTop;
 
 		//時刻表にパネルを追加
-		var panel = '<div class="panel" style="height: ' + h + 'px;">';
+		var panel = '<div class="panel" style="height: ' + h + 'px;" title="' + comments + '">';
 		panel += '<span id="issueMei">' + issueMei + '</span>';
 		panel += '<input type="hidden" name="issue_id" value="' + issueId + '" />';
 		panel += '<input type="hidden" name="bo_time" value="' + boTime + '" />';
@@ -329,6 +352,9 @@
 		calcTotalTime();
 	}
 
+	/**
+	 * 合計時間を表示
+	 */
 	function calcTotalTime() {
 
 		var panelsGridSize = 0;
@@ -341,24 +367,25 @@
 
 </script>
 
+
 <table id="timeTable">
 	<caption>
 		<a href="javascript:void(0);" id="prevDay">&lt;&lt;</a>
 		<form>
+			<input type="submit" name="decide" value="作業時間に反映" style="position: absolute; margin-top: -2.5rem; margin-left: 12rem;" />
 			<input type="text" name="yyyy" style="display: inline;">
 			年
 			<input type="text" name="mm" style="display: inline;">
 			月
 			<input type="text" name="dd" style="display: inline;">
 			日
-			<input type="submit" name="decide" value="報告" />
 		</form>
 		<a href="javascript:void(0);" id="nextDay">&gt;&gt;</a>
 	</caption>
 	<thead>
 		<tr>
 			<th>時刻</th>
-			<td>作業内容</td>
+			<td style="background-color: aliceblue; text-align: center;">作業内容</td>
 		</tr>
 	</thead>
 	<tbody></tbody>

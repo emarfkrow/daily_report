@@ -18,7 +18,7 @@ class DailyReportController < ApplicationController
             .joins("LEFT JOIN groups_users on issues.assigned_to_id = group_id")
             .joins(:project)
             .select("issues.*, projects.name as project_name")
-            .where(["(issues.assigned_to_id = :u or groups_users.user_id = :u) and ist.is_closed = :closed", {:u => uid, :closed => false}])
+            .where(["(issues.assigned_to_id = :u or groups_users.user_id = :u) and (ist.is_closed = false or issues.closed_on > (now() - INTERVAL 1 MONTH))", {:u => uid}])
             .all
 
         #活動内容のリストを取得
