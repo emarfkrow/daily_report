@@ -17,7 +17,7 @@ th, thead td, tfoot td {
 }
 
 td {
-	width: 20rem;
+	width: 30rem;
 }
 
 tbody td {
@@ -43,7 +43,7 @@ tbody {
 
 .panelWrapper {
 	position: relative;
-	width: 20rem;
+	width: 30rem;
 }
 
 .panel {

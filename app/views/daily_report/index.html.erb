@@ -372,7 +372,7 @@
 	<caption>
 		<a href="javascript:void(0);" id="prevDay">&lt;&lt;</a>
 		<form>
-			<input type="submit" name="decide" value="作業時間に反映" style="position: absolute; margin-top: -2.5rem; margin-left: 12rem;" />
+			<input type="submit" name="decide" value="作業時間に反映" style="position: absolute; margin-top: -2.5rem; margin-left: 17rem;" />
 			<input type="text" name="yyyy" style="display: inline;">
 			年
 			<input type="text" name="mm" style="display: inline;">
@@ -425,7 +425,7 @@
 				<label>チケット </label>
 				<select name="issue_id">
 					<% @issues.each do |issue| %>
-					<option value="<%= issue.id %>"><%= issue.project_name %>：<%= issue.subject %></option>
+					<option value="<%= issue.id %>"><%= issue.id %>:<%= issue.project_name %>:<%= issue.version_name %>:<%= issue.subject %></option>
 					<% end %>
 				</select>
 			</div>

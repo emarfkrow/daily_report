@@ -14,12 +14,14 @@ class DailyReportController < ApplicationController
 
         #ログインユーザおよびそのグループのチケットリストを取得
         @issues = Issue
-            .joins("INNER JOIN issue_statuses ist on ist.id = issues.status_id ")
-            .joins("LEFT JOIN groups_users on issues.assigned_to_id = group_id")
+            .joins("INNER JOIN issue_statuses ist   on ist.id      = issues.status_id ")
+            .joins("LEFT OUTER JOIN groups_users gu on gu.group_id = issues.assigned_to_id")
+            .joins("LEFT OUTER JOIN versions v      on v.id        = issues.fixed_version_id")
             .joins(:project)
-            .select("issues.*, projects.name as project_name")
-            .where(["(issues.assigned_to_id = :u or groups_users.user_id = :u) and (ist.is_closed = false or issues.closed_on > (now() - INTERVAL 1 MONTH))", {:u => uid}])
+            .select("issues.*, projects.name as project_name, v.name as version_name")
+            .where(["(issues.assigned_to_id = :u or gu.user_id = :u) and (ist.is_closed = false or issues.closed_on > (now() - INTERVAL 1 MONTH))", {:u => uid}])
             .all
+            .order("projects.id, v.id, issues.id")
 
         #活動内容のリストを取得
         @activities = Enumeration.where("type = 'TimeEntryActivity'").all
