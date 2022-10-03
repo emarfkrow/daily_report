@@ -1,3 +1,5 @@
+require 'csv'
+
 class DailyReportController < ApplicationController
     unloadable
 
@@ -150,5 +152,71 @@ class DailyReportController < ApplicationController
         insert += ") "
         ActiveRecord::Base.connection.execute(insert)
     end
+
+    #
+    # 月報出力
+    #
+    def monthly
+
+        #ログイン必須
+        require_login || return
+
+        uid = User.current.id
+        yyyymm = params[:yyyymm]
+
+        #render json: ActiveRecord::Base.connection.execute("select * from daily_reports where user_id = '" + uid.to_s + "' and concat (yyyy, mm) = '" + yyyymm + "' order by concat (dd, bo_time)")
+		#@dailyReports = ActiveRecord::Base.connection.execute("select * from daily_reports where user_id = '" + uid.to_s + "' and concat (yyyy, mm) = '" + yyyymm + "' order by concat (dd, bo_time)")
+        @dailyReports = DailyReport
+            .joins("INNER JOIN issues i on i.id = daily_reports.issue_id")
+            .joins("INNER JOIN trackers t on t.id = i.tracker_id")
+            .joins("INNER JOIN projects p on p.id = i.project_id")
+            .select("daily_reports.*, i.subject, i.tracker_id, t.name as tracker_name, i.project_id, p.name as project_name")
+        	.where(["daily_reports.user_id = :u and concat (daily_reports.yyyy, daily_reports.mm) = :yyyymm", {:u => uid, :yyyymm => yyyymm}])
+        	.all
+        	.order("dd, bo_time")
+
+		csv_data = CSV.generate(encoding: Encoding::SJIS, row_sep: "\r\n", force_quotes: true) do |csv|
+			csv << [
+				"id",
+				"user_id",
+				"yyyy",
+				"mm",
+				"dd",
+				"bo_time",
+				"eo_time",
+				"issue_id",
+				"activity_id",
+				"comments",
+				
+				"subject",
+				"tracker_id",
+				"tracker_name",
+				"project_id",
+				"project_name"
+			]
+			@dailyReports.each do |dailyReport|
+				csv << [
+					dailyReport.id,
+					dailyReport.user_id,
+					dailyReport.yyyy,
+					dailyReport.mm,
+					dailyReport.dd,
+					dailyReport.bo_time,
+					dailyReport.eo_time,
+					dailyReport.issue_id,
+					dailyReport.activity_id,
+					dailyReport.comments,
+					
+					dailyReport.subject,
+					dailyReport.tracker_id,
+					dailyReport.tracker_name,
+					dailyReport.project_id,
+					dailyReport.project_name
+				]
+			end
+		end
+		send_data(csv_data, filename: "月報." + yyyymm + ".csv")
+		#redirect_back(fallback_location: root_path)
+	end
 
 end

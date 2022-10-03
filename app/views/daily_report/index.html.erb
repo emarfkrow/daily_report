@@ -17,14 +17,23 @@
 		for (var h = 0; h < 24; h++) {
 			var hh = zeroPadding2(h);
 
-			var trs = '<tr><th rowspan="4">' + hh + ':00</th><td id="' + hh + ':00"></td></tr>';
+			var trs = '';
+			if (h == 8) {
+				trs += '<tr><th rowspan="4">' + hh + ':05</th><td id="' + hh + ':05"></td></tr>';
+			} else {
+				trs += '<tr><th rowspan="4">' + hh + ':00</th><td id="' + hh + ':00"></td></tr>';
+			}
 			trs += '<tr><td id="' + hh + ':15"></td></tr>';
 			trs += '<tr><td id="' + hh + ':30"></td></tr>';
 			trs += '<tr><td id="' + hh + ':45"></td></tr>'
 			$tbody.append(trs);
 
 			var options = '';
-			options += '<option value="' + hh + ':00">' + hh + ':00</option>';
+			if (h == 8) {
+				options += '<option value="' + hh + ':05">' + hh + ':05</option>';
+			} else {
+				options += '<option value="' + hh + ':00">' + hh + ':00</option>';
+			}
 			options += '<option value="' + hh + ':15">' + hh + ':15</option>';
 			options += '<option value="' + hh + ':30">' + hh + ':30</option>';
 			options += '<option value="' + hh + ':45">' + hh + ':45</option>';
@@ -35,7 +44,7 @@
 		//パネルのグリッドとして時刻表の行高さを取得
 		gridSize = $tbody.find('td')[0].clientHeight + 1;
 
-		//7:30までスクロール
+		//7:45までスクロール
 		$tbody.scrollTop($('[id="07:45"]')[0].offsetTop - $tbody[0].offsetTop);
 
 		//システム日時でパネルを表示
@@ -215,6 +224,10 @@
 		 */
 		$('[name="decide"]').on('click', function(event) {
 
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+
 			var $form = $(this).closest('form');
 			$.ajax({
 				url : './daily_reports/decide',
@@ -230,11 +243,34 @@
 			}).always(function() {
 			});
 
+			return false;
+		});
+
+
+		/**
+		 * 作業時間に反映ボタン押下
+		 * /
+		$('[name="monthly"]').on('click', function(event) {
+
 			event.preventDefault();
 			event.stopPropagation();
 			event.stopImmediatePropagation();
+
+			var $form = $(this).closest('form');
+			$.ajax({
+				url : './daily_reports/monthly',
+				type : 'post',
+				data : {
+					yyyymm : $form.find('[name="yyyymm"]').val(),
+				},
+				dataType : 'json'
+			}).fail(function(data) {
+			}).done(function(data) {
+			}).always(function() {
+			});
+
 			return false;
-		});
+		});*/
 	});
 
 	/**
@@ -396,6 +432,12 @@
 		</tr>
 	</tfoot>
 </table>
+
+<%= form_tag('./daily_reports/monthly', method: :post) do %>
+	<input type="text" name="yyyymm">
+	<button name="monthly">月報CSV</button>
+<% end %>
+
 
 <div id="dialog">
 	<form>
