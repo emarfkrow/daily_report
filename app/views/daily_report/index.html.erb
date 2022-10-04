@@ -365,7 +365,8 @@
 				var eoDate = new Date();
 				eoDate.setHours(boTimes[0]);
 				eoDate.setMinutes(boTimes[1] * 1 + gridMinutes);
-				var eoTime = zeroPadding2(eoDate.getHours()) + ':' + zeroPadding2(eoDate.getMinutes());
+				var eoMinutes = Math.round(eoDate.getMinutes() / 15) * 15;
+				var eoTime = zeroPadding2(eoDate.getHours()) + ':' + zeroPadding2(eoMinutes);
 				$(this).find('[name="eo_time"]').val(eoTime);
 
 				//終了日時を登録
