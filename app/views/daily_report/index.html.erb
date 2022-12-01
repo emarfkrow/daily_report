@@ -161,6 +161,11 @@
 		 * 作業報告クリック：作業報告照会
 		 */
 		$(document).on('click', '.panel', function() {
+			
+			if (isResized == true) {
+				isResized = false;
+				return;
+			}
 
 			//クリックしたパネルの日報ID・チケットID・開始時刻・終了時刻を取得
 			var $panel = $(this);
@@ -356,6 +361,8 @@
 			 * リサイズ終了時のイベント
 			 */
 			stop : function(event, ui) {
+				
+				isResized = true;
 
 				//パネルのサイズから終了時刻を評価
 				var grids = Math.round(ui.size.height / gridSize, 0);
@@ -383,11 +390,18 @@
 					calcTotalTime();
 				}).always(function() {
 				});
+
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				return false;
 			}
 		});
 
 		calcTotalTime();
 	}
+
+	var isResized = false;
 
 	/**
 	 * 合計時間を表示
